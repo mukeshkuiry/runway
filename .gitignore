@@ -11,3 +11,4 @@ DerivedData/
 credentials.json
 *.secret
 *.credentials
+PUBLISH_GUIDE.md
