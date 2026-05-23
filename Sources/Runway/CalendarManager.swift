@@ -1,9 +1,27 @@
 import Foundation
 
-/// Fetches upcoming events from Google Calendar API
+/// Fetches upcoming events from Google Calendar API with smart URL extraction
 final class CalendarManager: ObservableObject {
     @Published var meetings: [MeetingEvent] = []
+    @Published var calendarWeather: CalendarWeather = .clearSkies
+    @Published var conflicts: [(MeetingEvent, MeetingEvent)] = []
+
     private var cachedMeetings: [MeetingEvent] = []
+
+    // MARK: - Feature 2: Smart URL Extraction Patterns
+
+    private static let zoomPattern = try! NSRegularExpression(
+        pattern: #"https?://[\w.-]*zoom\.us/[jw]/[\w?=&/%-]+"#,
+        options: .caseInsensitive
+    )
+    private static let meetPattern = try! NSRegularExpression(
+        pattern: #"https?://meet\.google\.com/[\w-]+"#,
+        options: .caseInsensitive
+    )
+    private static let teamsPattern = try! NSRegularExpression(
+        pattern: #"https?://teams\.microsoft\.com/l/meetup-join/[\w%/?.=&-]+"#,
+        options: .caseInsensitive
+    )
 
     func refreshCache() {
         GoogleAuthManager.shared.refreshTokenIfNeeded { [weak self] success in
@@ -19,9 +37,173 @@ final class CalendarManager: ObservableObject {
         return cachedMeetings
     }
 
+    // MARK: - Feature 3: Calendar Weather Computation
+
+    func computeWeather() -> CalendarWeather {
+        let now = Date()
+        let eightHoursLater = Calendar.current.date(byAdding: .hour, value: 8, to: now)!
+
+        let upcoming = cachedMeetings.filter { meeting in
+            !meeting.isAllDay && meeting.startTime >= now && meeting.startTime <= eightHoursLater
+        }
+
+        let totalMinutes = upcoming.reduce(0) { $0 + Int(($1.duration) / 60) }
+        let totalHours = Double(totalMinutes) / 60.0
+
+        // Check for back-to-back blocks (< 5 min gap)
+        let sorted = upcoming.sorted { $0.startTime < $1.startTime }
+        var backToBackCount = 0
+        if sorted.count > 1 {
+            for i in 0..<(sorted.count - 1) {
+                let gap = sorted[i + 1].startTime.timeIntervalSince(sorted[i].endTime)
+                if gap < 300 { // < 5 minutes
+                    backToBackCount += 1
+                }
+            }
+        }
+
+        let weather: CalendarWeather
+        if totalHours > 4 || backToBackCount >= 2 {
+            weather = .stormWarning
+        } else if totalHours >= 2 {
+            weather = .overcast
+        } else {
+            weather = .clearSkies
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.calendarWeather = weather
+        }
+        return weather
+    }
+
+    // MARK: - Feature 4: Conflict Detection
+
+    func detectConflicts() -> [(MeetingEvent, MeetingEvent)] {
+        let nonAllDay = cachedMeetings.filter { !$0.isAllDay && !$0.isPast }
+        var foundConflicts: [(MeetingEvent, MeetingEvent)] = []
+
+        for i in 0..<nonAllDay.count {
+            for j in (i + 1)..<nonAllDay.count {
+                if nonAllDay[i].overlaps(with: nonAllDay[j]) {
+                    foundConflicts.append((nonAllDay[i], nonAllDay[j]))
+                }
+            }
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.conflicts = foundConflicts
+        }
+        return foundConflicts
+    }
+
+    // MARK: - Feature 5: Daily Metrics Computation
+
+    func computeDailyMetrics(for date: Date = Date()) -> DailyMetrics {
+        let calendar = Calendar.current
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        let dateString = formatter.string(from: date)
+
+        let dayMeetings = cachedMeetings.filter { meeting in
+            !meeting.isAllDay && calendar.isDate(meeting.startTime, inSameDayAs: date)
+        }
+
+        let totalMinutes = dayMeetings.reduce(0) { $0 + Int($1.duration / 60) }
+        let deepWork = max(0, 480 - totalMinutes) // Assume 8hr workday
+
+        let sorted = dayMeetings.sorted { $0.startTime < $1.startTime }
+        var backToBack = 0
+        if sorted.count > 1 {
+            for i in 0..<(sorted.count - 1) {
+                let gap = sorted[i + 1].startTime.timeIntervalSince(sorted[i].endTime)
+                if gap < 300 { backToBack += 1 }
+            }
+        }
+
+        return DailyMetrics(
+            date: dateString,
+            totalMeetingMinutes: totalMinutes,
+            deepWorkMinutes: deepWork,
+            backToBackBlocks: backToBack,
+            earlyExits: 0,
+            meetingCount: dayMeetings.count
+        )
+    }
+
+    // MARK: - Smart URL Extraction (Feature 2)
+
+    private func extractConferenceURL(from item: [String: Any]) -> (URL?, ConferencePlatform) {
+        // Priority 1: conferenceData entryPoints
+        if let entryPoints = (item["conferenceData"] as? [String: Any])?["entryPoints"] as? [[String: Any]] {
+            if let videoEntry = entryPoints.first(where: { ($0["entryPointType"] as? String) == "video" }),
+               let uri = videoEntry["uri"] as? String,
+               let url = URL(string: uri) {
+                return (url, detectPlatform(from: uri))
+            }
+        }
+
+        // Priority 2: hangoutLink
+        if let hangout = item["hangoutLink"] as? String, let url = URL(string: hangout) {
+            return (url, .googleMeet)
+        }
+
+        // Priority 3: Scan location field
+        if let location = item["location"] as? String {
+            if let (url, platform) = extractURLFromText(location) {
+                return (url, platform)
+            }
+        }
+
+        // Priority 4: Scan description/body
+        if let description = item["description"] as? String {
+            if let (url, platform) = extractURLFromText(description) {
+                return (url, platform)
+            }
+        }
+
+        return (nil, .unknown)
+    }
+
+    private func extractURLFromText(_ text: String) -> (URL, ConferencePlatform)? {
+        let range = NSRange(text.startIndex..., in: text)
+
+        // Check Zoom
+        if let match = Self.zoomPattern.firstMatch(in: text, range: range),
+           let matchRange = Range(match.range, in: text) {
+            let urlString = String(text[matchRange])
+            if let url = URL(string: urlString) { return (url, .zoom) }
+        }
+
+        // Check Google Meet
+        if let match = Self.meetPattern.firstMatch(in: text, range: range),
+           let matchRange = Range(match.range, in: text) {
+            let urlString = String(text[matchRange])
+            if let url = URL(string: urlString) { return (url, .googleMeet) }
+        }
+
+        // Check Teams
+        if let match = Self.teamsPattern.firstMatch(in: text, range: range),
+           let matchRange = Range(match.range, in: text) {
+            let urlString = String(text[matchRange])
+            if let url = URL(string: urlString) { return (url, .teams) }
+        }
+
+        return nil
+    }
+
+    private func detectPlatform(from urlString: String) -> ConferencePlatform {
+        let lower = urlString.lowercased()
+        if lower.contains("zoom.us") { return .zoom }
+        if lower.contains("meet.google.com") { return .googleMeet }
+        if lower.contains("teams.microsoft.com") { return .teams }
+        return .unknown
+    }
+
+    // MARK: - Fetch Events
+
     private func fetchUpcomingEvents(accessToken: String) {
         let now = Date()
-        // Fetch 7 days of events
         let sevenDaysLater = Calendar.current.date(byAdding: .day, value: 7, to: now)!
 
         let formatter = ISO8601DateFormatter()
@@ -34,14 +216,15 @@ final class CalendarManager: ObservableObject {
             URLQueryItem(name: "timeMax", value: timeMax),
             URLQueryItem(name: "singleEvents", value: "true"),
             URLQueryItem(name: "orderBy", value: "startTime"),
-            URLQueryItem(name: "maxResults", value: "50")
+            URLQueryItem(name: "maxResults", value: "50"),
+            URLQueryItem(name: "conferenceDataVersion", value: "1")
         ]
 
         var request = URLRequest(url: components.url!)
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            guard let data = data, error == nil else {
+            guard let self = self, let data = data, error == nil else {
                 print("Calendar fetch error: \(error?.localizedDescription ?? "unknown")")
                 return
             }
@@ -58,12 +241,11 @@ final class CalendarManager: ObservableObject {
 
                         let isAllDay = start["date"] != nil
 
-                        let startDate = self?.parseDate(from: start)
-                        let endDate = self?.parseDate(from: end)
+                        let startDate = self.parseDate(from: start)
+                        let endDate = self.parseDate(from: end)
 
                         guard let sDate = startDate, let eDate = endDate else { return nil }
 
-                        // Parse attendees
                         var attendees: [Attendee] = []
                         if let attendeeList = item["attendees"] as? [[String: Any]] {
                             attendees = attendeeList.compactMap { a in
@@ -81,17 +263,8 @@ final class CalendarManager: ObservableObject {
                             }
                         }
 
-                        // Conference URL
-                        var confURL: URL? = nil
-                        if let entryPoints = (item["conferenceData"] as? [String: Any])?["entryPoints"] as? [[String: Any]] {
-                            if let videoEntry = entryPoints.first(where: { ($0["entryPointType"] as? String) == "video" }),
-                               let uri = videoEntry["uri"] as? String {
-                                confURL = URL(string: uri)
-                            }
-                        }
-                        if confURL == nil, let hangout = item["hangoutLink"] as? String {
-                            confURL = URL(string: hangout)
-                        }
+                        // Feature 2: Smart URL extraction
+                        let (confURL, platform) = self.extractConferenceURL(from: item)
 
                         let location = item["location"] as? String
                         let description = item["description"] as? String
@@ -106,13 +279,16 @@ final class CalendarManager: ObservableObject {
                             attendees: attendees,
                             calendarColor: nil,
                             description: description,
-                            isAllDay: isAllDay
+                            isAllDay: isAllDay,
+                            platform: platform
                         )
                     }
 
                     DispatchQueue.main.async {
-                        self?.cachedMeetings = meetings
-                        self?.meetings = meetings
+                        self.cachedMeetings = meetings
+                        self.meetings = meetings
+                        _ = self.computeWeather()
+                        _ = self.detectConflicts()
                     }
                 }
             } catch {

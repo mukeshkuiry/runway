@@ -3,7 +3,19 @@ set -euo pipefail
 
 # Installer for the user LaunchAgent for Runway
 # Usage: ./scripts/install-launchagent.sh [path-to-executable]
-# If no path provided, the script will attempt to locate a built executable under .build/*/release/Runway
+# If no path is provided the script will locate the built executable under .build/*/release/Runway
+
+usage() { cat <<USAGE
+Usage: $0 [path-to-executable]
+
+If no path is provided the script attempts to find the built executable at .build/*/release/Runway.
+USAGE
+}
+
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+  usage
+  exit 0
+fi
 
 if [ "${1:-}" != "" ]; then
   EXE_PATH="$1"
@@ -16,7 +28,7 @@ if [ -z "$EXE_PATH" ]; then
   exit 1
 fi
 
-# Make absolute
+# Resolve absolute path to the executable
 EXE_PATH="$(cd "$(dirname "$EXE_PATH")" && pwd)/$(basename "$EXE_PATH")"
 PLIST_DEST="$HOME/Library/LaunchAgents/com.mukesh.runway.plist"
 

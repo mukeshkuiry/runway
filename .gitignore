@@ -1,5 +1,8 @@
 .DS_Store
+.DS_Store
 .build/
+.swiftpm/
+Packages/
 *.xcodeproj
 *.xcworkspace
 xcuserdata/
@@ -11,4 +14,8 @@ DerivedData/
 credentials.json
 *.secret
 *.credentials
+.vscode/
+.idea/
 PUBLISH_GUIDE.md
+launch_agents/
+launch_agents/com.mukesh.runway.plist

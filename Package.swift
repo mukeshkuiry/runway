@@ -8,7 +8,13 @@ let package = Package(
         .executableTarget(
             name: "Runway",
             path: "Sources/Runway",
-            exclude: ["Info.plist", "Runway.entitlements"]
+            exclude: ["Info.plist", "Runway.entitlements"],
+            linkerSettings: [
+                .linkedFramework("AppKit"),
+                .linkedFramework("IOKit"),
+                .linkedFramework("CoreAudio"),
+                .linkedFramework("Carbon")
+            ]
         )
     ]
 )
