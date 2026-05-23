@@ -35,7 +35,7 @@ A macOS menu bar app that syncs with your Google Calendar and sends animated pla
 ### Build & Run
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/runway.git
+git clone https://github.com/mukeshkuiry-refyne/runway.git
 cd runway
 swift build
 swift run Runway
