@@ -51,12 +51,12 @@ func startInBackground() {
         execPath = (cwd as NSString).appendingPathComponent(args[0])
     }
 
-    // Set up file actions: redirect stdin/stdout/stderr to /dev/null
+    // Set up file actions: redirect stdin/stdout to /dev/null, stderr to log
     var fileActions: posix_spawn_file_actions_t?
     posix_spawn_file_actions_init(&fileActions)
     posix_spawn_file_actions_addopen(&fileActions, STDIN_FILENO, "/dev/null", O_RDONLY, 0)
-    posix_spawn_file_actions_addopen(&fileActions, STDOUT_FILENO, "/dev/null", O_WRONLY, 0)
-    posix_spawn_file_actions_addopen(&fileActions, STDERR_FILENO, "/dev/null", O_WRONLY, 0)
+    posix_spawn_file_actions_addopen(&fileActions, STDOUT_FILENO, "/tmp/runway.out.log", O_WRONLY | O_CREAT | O_TRUNC, 0o644)
+    posix_spawn_file_actions_addopen(&fileActions, STDERR_FILENO, "/tmp/runway.err.log", O_WRONLY | O_CREAT | O_TRUNC, 0o644)
 
     // Set up spawn attributes
     var spawnAttr: posix_spawnattr_t?
@@ -204,13 +204,12 @@ func printUsage() {
 }
 
 // MARK: - Run App (foreground, used by launchd or `start` spawn)
-private let kLockFile = "/tmp/runway.pid"
-
 func runApp() {
+    let lockFile = "/tmp/runway.pid"
     // Single Instance Guard
     let currentPID = ProcessInfo.processInfo.processIdentifier
 
-    if let contents = try? String(contentsOfFile: kLockFile, encoding: .utf8),
+    if let contents = try? String(contentsOfFile: lockFile, encoding: .utf8),
        let existingPID = Int32(contents.trimmingCharacters(in: .whitespacesAndNewlines)),
        existingPID != currentPID && kill(existingPID, 0) == 0 {
         // Another instance is already running — exit silently
@@ -218,11 +217,16 @@ func runApp() {
     }
 
     // Write our PID
-    try? "\(currentPID)".write(toFile: kLockFile, atomically: true, encoding: .utf8)
+    try? "\(currentPID)".write(toFile: lockFile, atomically: true, encoding: .utf8)
 
     // Clean up PID file on exit
-    atexit {
-        try? FileManager.default.removeItem(atPath: kLockFile)
+    signal(SIGTERM) { _ in
+        try? FileManager.default.removeItem(atPath: "/tmp/runway.pid")
+        exit(0)
+    }
+    signal(SIGINT) { _ in
+        try? FileManager.default.removeItem(atPath: "/tmp/runway.pid")
+        exit(0)
     }
 
     // App Startup — configure as agent app (no dock icon)
