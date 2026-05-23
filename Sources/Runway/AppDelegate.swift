@@ -1,6 +1,5 @@
 import AppKit
 import SwiftUI
-import ServiceManagement
 import Carbon.HIToolbox
 
 // MARK: - Full Featured AppDelegate (Features 3, 4, 10, 12, 13)
@@ -56,8 +55,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             showOnboarding()
         }
-
-        enableLaunchAtLogin()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -265,13 +262,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
-        let launchItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
-        launchItem.target = self
-        launchItem.state = isLaunchAtLoginEnabled() ? .on : .off
-        menu.addItem(launchItem)
-
-        menu.addItem(NSMenuItem.separator())
-
         let quitItem = NSMenuItem(title: "Quit Runway", action: #selector(quitApp), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
@@ -386,34 +376,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func quitApp() {
         timerManager.stopEngineLoop()
         NSApplication.shared.terminate(nil)
-    }
-
-    // MARK: - Launch at Login
-
-    @objc private func toggleLaunchAtLogin() {
-        if isLaunchAtLoginEnabled() {
-            disableLaunchAtLogin()
-        } else {
-            enableLaunchAtLogin()
-        }
-    }
-
-    private func enableLaunchAtLogin() {
-        if #available(macOS 13.0, *) {
-            try? SMAppService.mainApp.register()
-        }
-    }
-
-    private func disableLaunchAtLogin() {
-        if #available(macOS 13.0, *) {
-            try? SMAppService.mainApp.unregister()
-        }
-    }
-
-    private func isLaunchAtLoginEnabled() -> Bool {
-        if #available(macOS 13.0, *) {
-            return SMAppService.mainApp.status == .enabled
-        }
-        return false
     }
 }

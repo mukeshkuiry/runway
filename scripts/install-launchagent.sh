@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Installer for the user LaunchAgent for Runway
+# DEV ONLY: Manual LaunchAgent installer for local development.
+# End users do NOT need this — the app self-installs its LaunchAgent on first run.
 # Usage: ./scripts/install-launchagent.sh [path-to-executable]
 # If no path is provided the script will locate the built executable under .build/*/release/Runway
 
