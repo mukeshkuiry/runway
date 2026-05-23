@@ -1,5 +1,50 @@
 import AppKit
 
+// MARK: - Uninstall Command
+if CommandLine.arguments.contains("--uninstall") {
+    print("Uninstalling Runway Meeting...")
+
+    // 1. Stop any running instance
+    let pidFile = "/tmp/runway.pid"
+    if let pidStr = try? String(contentsOfFile: pidFile, encoding: .utf8),
+       let pid = Int32(pidStr.trimmingCharacters(in: .whitespacesAndNewlines)) {
+        kill(pid, SIGTERM)
+        print("  ✓ Stopped running process (PID \(pid))")
+    }
+
+    // 2. Unload and remove LaunchAgent
+    let uid = getuid()
+    let plistPath = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/LaunchAgents/com.mukesh.runway.plist").path
+    let unloadResult = Process()
+    unloadResult.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+    unloadResult.arguments = ["bootout", "gui/\(uid)", plistPath]
+    unloadResult.standardOutput = FileHandle.nullDevice
+    unloadResult.standardError = FileHandle.nullDevice
+    try? unloadResult.run()
+    unloadResult.waitUntilExit()
+
+    if FileManager.default.fileExists(atPath: plistPath) {
+        try? FileManager.default.removeItem(atPath: plistPath)
+        print("  ✓ Removed LaunchAgent")
+    }
+
+    // 3. Clean up runtime files
+    let filesToRemove = ["/tmp/runway.pid", "/tmp/runway.out.log", "/tmp/runway.err.log"]
+    for file in filesToRemove {
+        try? FileManager.default.removeItem(atPath: file)
+    }
+    print("  ✓ Cleaned up runtime files")
+
+    // 4. Homebrew uninstall hint
+    print("  ✓ Done!")
+    print("")
+    print("  To also remove the binary, run:")
+    print("    brew uninstall runway-meeting")
+    print("    brew untap mukeshkuiry-refyne/tap")
+    exit(0)
+}
+
 // MARK: - Background Daemon Fork
 // If not already running as a daemon (via launchd or fork), fork into background
 // so the terminal is released immediately.
