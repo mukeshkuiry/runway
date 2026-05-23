@@ -58,10 +58,12 @@ func startInBackground() {
     posix_spawn_file_actions_addopen(&fileActions, STDOUT_FILENO, "/dev/null", O_WRONLY, 0)
     posix_spawn_file_actions_addopen(&fileActions, STDERR_FILENO, "/dev/null", O_WRONLY, 0)
 
-    // Set up spawn attributes: start a new session (setsid) so terminal close doesn't kill it
+    // Set up spawn attributes
     var spawnAttr: posix_spawnattr_t?
     posix_spawnattr_init(&spawnAttr)
-    posix_spawnattr_setflags(&spawnAttr, Int16(POSIX_SPAWN_SETSID))
+    // Note: We do NOT use POSIX_SPAWN_SETSID because the menu bar app needs
+    // access to the login session's window server. The app survives terminal
+    // close because AppKit apps with a run loop don't die on SIGHUP.
 
     // Build environment with RUNWAY_DAEMONIZED=1
     var env = ProcessInfo.processInfo.environment
@@ -89,6 +91,18 @@ func startInBackground() {
 
     // Write PID file immediately so duplicate detection works
     try? "\(pid)".write(toFile: "/tmp/runway.pid", atomically: true, encoding: .utf8)
+
+    // Wait briefly and verify the process is actually running
+    usleep(1_000_000) // 1 second
+    if kill(pid, 0) != 0 {
+        // Process died — likely a crash
+        try? FileManager.default.removeItem(atPath: "/tmp/runway.pid")
+        print("")
+        print("  \u{001B}[31m✗\u{001B}[0m Runway failed to start (process exited immediately)")
+        print("  \u{001B}[90mCheck /tmp/runway.err.log for details.\u{001B}[0m")
+        print("")
+        exit(1)
+    }
 
     // Install LaunchAgent for auto-start on login
     LaunchAgentManager.installIfNeeded()
