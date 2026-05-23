@@ -14,8 +14,13 @@ case "status":
 case "--help", "-h", "help":
     printUsage()
 case nil:
-    // No subcommand: run in foreground (used by launchd or direct invocation)
-    runApp()
+    // No subcommand: behave like `start` (background fork)
+    // Unless launched by launchd, in which case run in foreground
+    if getppid() == 1 || ProcessInfo.processInfo.environment["RUNWAY_DAEMONIZED"] != nil {
+        runApp()
+    } else {
+        startInBackground()
+    }
 default:
     fputs("Unknown command: \(command!)\n", stderr)
     printUsage()
