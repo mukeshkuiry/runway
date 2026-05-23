@@ -33,7 +33,10 @@ func startInBackground() {
     if let pidStr = try? String(contentsOfFile: "/tmp/runway.pid", encoding: .utf8),
        let pid = Int32(pidStr.trimmingCharacters(in: .whitespacesAndNewlines)),
        kill(pid, 0) == 0 {
-        print("Runway is already running (PID \(pid))")
+        print("")
+        print("  \u{001B}[33m▸\u{001B}[0m Runway is already running (PID \(pid))")
+        print("  \u{001B}[90mUse `runway-meeting stop` to stop it.\u{001B}[0m")
+        print("")
         exit(0)
     }
 
@@ -87,8 +90,17 @@ func startInBackground() {
     // Install LaunchAgent for auto-start on login
     LaunchAgentManager.installIfNeeded()
 
-    print("Runway started (PID \(pid))")
-    print("It will auto-start on login.")
+    print("")
+    print("  \u{001B}[36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u{001B}[0m")
+    print("  \u{001B}[1m\u{001B}[36m  Runway Meeting\u{001B}[0m")
+    print("  \u{001B}[36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\u{001B}[0m")
+    print("")
+    print("  \u{001B}[32m✓\u{001B}[0m Started in background (PID \(pid))")
+    print("  \u{001B}[32m✓\u{001B}[0m Auto-launch on login enabled")
+    print("")
+    print("  \u{001B}[90mYour next meeting will appear in the menu bar.\u{001B}[0m")
+    print("  \u{001B}[90mUse `runway-meeting stop` to stop.\u{001B}[0m")
+    print("")
     exit(0)
 }
 
