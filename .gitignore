@@ -1,0 +1,13 @@
+.DS_Store
+.build/
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+DerivedData/
+*.swp
+*.swo
+*~
+.env
+credentials.json
+*.secret
+*.credentials
