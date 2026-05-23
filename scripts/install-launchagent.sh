@@ -47,6 +47,12 @@ cat > "$PLIST_DEST" <<EOF
   <true/>
   <key>KeepAlive</key>
   <false/>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>LimitLoadToSessionType</key>
+  <string>Aqua</string>
+  <key>LaunchOnlyOnce</key>
+  <true/>
   <key>StandardOutPath</key>
   <string>/tmp/runway.out.log</string>
   <key>StandardErrorPath</key>
@@ -60,6 +66,5 @@ chmod 644 "$PLIST_DEST"
 # Unload previous (ignore errors) and bootstrap for GUI session
 launchctl bootout gui/$(id -u) "$PLIST_DEST" 2>/dev/null || true
 launchctl bootstrap gui/$(id -u) "$PLIST_DEST"
-launchctl kickstart -kp gui/$(id -u)/com.mukesh.runway
 
 echo "Installed $PLIST_DEST -> Program: $EXE_PATH"
