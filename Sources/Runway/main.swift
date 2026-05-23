@@ -87,6 +87,9 @@ func startInBackground() {
         exit(1)
     }
 
+    // Write PID file immediately so duplicate detection works
+    try? "\(pid)".write(toFile: "/tmp/runway.pid", atomically: true, encoding: .utf8)
+
     // Install LaunchAgent for auto-start on login
     LaunchAgentManager.installIfNeeded()
 
@@ -106,21 +109,17 @@ func startInBackground() {
 
 // MARK: - Stop (kill process + remove LaunchAgent)
 func stopRunway() {
-    var stopped = false
-
+    print("")
+    
     // Kill running process
     let pidFile = "/tmp/runway.pid"
     if let pidStr = try? String(contentsOfFile: pidFile, encoding: .utf8),
-       let pid = Int32(pidStr.trimmingCharacters(in: .whitespacesAndNewlines)) {
-        if kill(pid, 0) == 0 {
-            kill(pid, SIGTERM)
-            stopped = true
-            print("Runway stopped (PID \(pid))")
-        }
-    }
-
-    if !stopped {
-        print("Runway is not running")
+       let pid = Int32(pidStr.trimmingCharacters(in: .whitespacesAndNewlines)),
+       kill(pid, 0) == 0 {
+        kill(pid, SIGTERM)
+        print("  \u{001B}[32m✓\u{001B}[0m Stopped Runway (PID \(pid))")
+    } else {
+        print("  \u{001B}[33m▸\u{001B}[0m Runway was not running")
     }
 
     // Unload and remove LaunchAgent
@@ -145,7 +144,9 @@ func stopRunway() {
     try? FileManager.default.removeItem(atPath: "/tmp/runway.out.log")
     try? FileManager.default.removeItem(atPath: "/tmp/runway.err.log")
 
-    print("LaunchAgent removed (won't auto-start on login)")
+    print("  \u{001B}[32m✓\u{001B}[0m Auto-launch on login disabled")
+    print("  \u{001B}[32m✓\u{001B}[0m Cleaned up")
+    print("")
     exit(0)
 }
 
