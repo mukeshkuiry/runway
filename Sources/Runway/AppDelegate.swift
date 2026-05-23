@@ -26,6 +26,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
 
+        // Set app icon to match menu bar branding
+        setApplicationIcon()
+
         calendarManager = CalendarManager()
         timerManager = TimerManager(calendarManager: calendarManager)
 
@@ -65,6 +68,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NotificationCenter.default.removeObserver(observer)
         }
         unregisterEjectionHotkey()
+    }
+
+    // MARK: - App Icon
+
+    private func setApplicationIcon() {
+        let size = NSSize(width: 512, height: 512)
+        let image = NSImage(size: size, flipped: false) { rect in
+            // Draw a gradient background
+            let gradient = NSGradient(starting: NSColor.systemBlue, ending: NSColor.systemCyan)
+            let path = NSBezierPath(roundedRect: rect.insetBy(dx: 40, dy: 40), xRadius: 80, yRadius: 80)
+            gradient?.draw(in: path, angle: 135)
+
+            // Draw the airplane symbol
+            if let symbol = NSImage(systemSymbolName: "airplane.departure", accessibilityDescription: nil) {
+                let config = NSImage.SymbolConfiguration(pointSize: 220, weight: .medium)
+                let configured = symbol.withSymbolConfiguration(config) ?? symbol
+                let symbolSize = configured.size
+                let origin = NSPoint(
+                    x: (rect.width - symbolSize.width) / 2,
+                    y: (rect.height - symbolSize.height) / 2
+                )
+                NSColor.white.set()
+                configured.draw(in: NSRect(origin: origin, size: symbolSize))
+            }
+            return true
+        }
+        NSApplication.shared.applicationIconImage = image
     }
 
     // MARK: - Feature 3: Menu Bar Weather Icon

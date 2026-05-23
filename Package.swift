@@ -9,6 +9,9 @@ let package = Package(
             name: "Runway",
             path: "Sources/Runway",
             exclude: ["Info.plist", "Runway.entitlements"],
+            resources: [
+                .process("Resources")
+            ],
             linkerSettings: [
                 .linkedFramework("AppKit"),
                 .linkedFramework("IOKit"),
