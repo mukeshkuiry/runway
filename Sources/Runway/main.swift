@@ -32,7 +32,16 @@ func startInBackground() {
         exit(0)
     }
 
-    let execPath = args[0]
+    // Resolve the full path of the current executable
+    let execPath: String
+    if args[0].hasPrefix("/") {
+        execPath = args[0]
+    } else if let resolvedURL = Bundle.main.executableURL {
+        execPath = resolvedURL.resolvingSymlinksInPath().path
+    } else {
+        let cwd = FileManager.default.currentDirectoryPath
+        execPath = (cwd as NSString).appendingPathComponent(args[0])
+    }
 
     // Set up file actions: redirect stdin/stdout/stderr to /dev/null
     var fileActions: posix_spawn_file_actions_t?
