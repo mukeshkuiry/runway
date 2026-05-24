@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 
-const WORDS = ['CLEARED FOR TAKEOFF', 'READY FOR BOARDING', 'ENGINES RUNNING', 'ON FINAL APPROACH']
+const WORDS = [
+  'STANDUP IN 5 MIN · GET READY',
+  'ZOOM WITH SARAH · STARTING SOON',
+  'YOU\'RE FREE UNTIL 2 PM · BREATHE',
+  'DESIGN REVIEW · JOIN LINK READY',
+  'NEXT: 1:1 WITH ALEX · 2:30 PM',
+]
 
 export default function SplitFlapText({ className = '' }: { className?: string }) {
   const [displayed, setDisplayed] = useState('')

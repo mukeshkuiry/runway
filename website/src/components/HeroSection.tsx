@@ -46,24 +46,25 @@ export default function HeroSection() {
         {/* Status badge */}
         <div className="mb-5 flex items-center gap-2 px-4 py-2 rounded-full glass font-mono text-xs tracking-widest uppercase text-runway-green border-glow-green">
           <span className="w-2 h-2 rounded-full bg-runway-green animate-pulse" />
-          ATC ONLINE · ALL SYSTEMS GO
+          ⌘ macOS App · Free
         </div>
 
         {/* Main headline */}
         <h1 className="font-sans font-bold text-5xl sm:text-6xl md:text-7xl lg:text-8xl text-white leading-[1.08] mb-4 max-w-5xl">
-          Your Calendar.<br />
-          <span className="gradient-text text-glow-blue">Cleared for</span>{' '}Takeoff.
+          Your meetings deserve<br />
+          <span className="gradient-text text-glow-blue">a heads-up.</span>
         </h1>
 
-        {/* Animated sub-headline */}
+        {/* Animated sub-headline — shows real scenarios */}
         <div className="font-mono text-sm md:text-base tracking-widest uppercase text-runway-muted mb-3 h-7 flex items-center justify-center">
           <SplitFlapText />
         </div>
 
         {/* Description */}
         <p className="text-runway-muted text-sm md:text-base max-w-lg mb-7 leading-relaxed">
-          Aviation-themed alerts, departure board dashboard, and
-          zero-friction meeting management for macOS.
+          Runway lives in your menu bar and tells you about your next meeting
+          before it sneaks up on you — alerts, a glanceable dashboard,
+          and your join link, always one click away.
         </p>
 
         {/* CTA buttons */}
